@@ -1,0 +1,111 @@
+from bs4 import BeautifulSoup
+
+def read_file(file_ID):
+    """
+    Read the XML file and extract only the text from it.
+
+    Parameters:
+    file_ID (str): The name or ID of the XML file.
+
+    Returns:
+    list: A list of strings with the text content of the file.
+    """
+    
+    encodings = ['utf-8', 'ISO-8859-1', 'cp1252', 'latin1']
+    for encoding in encodings:
+        try:
+            with open(file_ID, encoding = encoding) as f:
+                data = f.read()
+            break
+        except UnicodeDecodeError:
+            #for debugging
+            print(f"Failed to decode with encoding: {encoding}")
+    else:
+        raise ValueError("Unable to read file with any of the attempted encodings")
+    
+    Bs_data = BeautifulSoup(data, "xml")
+    
+    # get the content (text) of the paper (most of the XML file is tecnical detail like fonts and word size...)
+    # taking all the branches start with 'string', then take from each one the 'CONTENT' component, then striping it from 
+    # all the non relevant signs. can print at any stage to see where we standing.
+    d_CONTENT = Bs_data.find_all('String')
+    words =[]
+    for s in d_CONTENT:
+        branch = str(s)
+        sentence = branch.split(" ")
+        word = sentence[1].split("=")
+        words.append(word[1].strip('"'))
+    
+    #return the content as a list
+    return words
+
+# to put it all togather as a string, this way we will have list with the content and the content as a string:
+# s_corrent_file = ' '.join(l_corrent_file)     
+
+def get_index(l_corrent_file):
+    """
+    Detect the relevant part of the text starts and where it ends, while the maximum option is the length of l_corrent_file.
+
+    Parameters:
+    l_corrent_file (list): The list with the content we search for key words.
+
+    Returns:
+    list of tuples: Each tuple contains the start and end indices of the relevant content.
+    """
+
+    # Key words indicating the relevant part
+    relevant = {}
+    # Key words indicating the start of a new section, hence the end of the relevant part.
+    n_relevant = {}
+    
+    starting_point = []
+    ending_point = []
+
+    # Collecting starting points of relevant parts
+    for i in range(len(l_corrent_file)):
+        if l_corrent_file[i] in relevant:
+            starting_point.append(i)
+
+    # Collecting ending points of relevant parts
+        elif l_corrent_file[i] in n_relevant:
+            ending_point.append(i)
+
+    # If no relevant word is found, the text is not relevant
+    if not starting_point:
+        return []
+    # If no n_relevant word is found, return the text from the first relevant word to the end
+    elif not ending_point:
+        return [(starting_point[0], len(l_corrent_file))]
+
+    # Otherwise, create tuples of start and end points
+    L = []
+    x = 0
+    for i in starting_point:
+        if i < x:
+            continue
+        else:
+            for j in ending_point:
+                if i > j:
+                    continue
+                else:
+                    L.append((i, j))
+                    x = j
+                    break
+    return L
+
+def relevant_text(l_corrent_file, relevant_range):
+    """
+    Extract the relevant part of the text.
+
+    Parameters:
+    l_corrent_file (list): The list of the current file.
+    relevant_range (list): List of tuples containing the start and end points of the relevant parts of the text.
+
+    Returns:
+    list: List of lists with the relevant part of the text.
+    """
+    L = []
+    for t in relevant_range:
+        L.append(l_corrent_file[t[0]:t[1]])
+    return L
+
